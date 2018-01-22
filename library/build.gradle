@@ -1,0 +1,94 @@
+apply plugin: 'com.android.library'
+apply plugin: 'kotlin-android'
+apply plugin: 'jacoco'
+
+// Manifest version
+def versionMajor = 1
+def versionMinor = 0
+def versionPatch = 0
+
+android {
+    compileSdkVersion compile_sdk_version as int
+    buildToolsVersion build_tools_version
+
+    defaultConfig {
+        minSdkVersion min_sdk_version as int
+        targetSdkVersion target_sdk_version as int
+        versionCode versionMajor * 10000 + versionMinor * 100 + versionPatch
+        versionName "${versionMajor}.${versionMinor}.${versionPatch}"
+
+        testInstrumentationRunner "android.support.test.runner.AndroidJUnitRunner"
+
+    }
+
+    buildTypes {
+        release {
+            minifyEnabled false
+        }
+    }
+
+    testOptions {
+        unitTests.all {
+            // configure the set of classes for JUnit tests
+            include project.hasProperty("testFilter") ? "**/*${project.ext.testFilter}*Test.class" : '**/*Test.class'
+            exclude '**/espresso/**/*.class'
+
+            // configure max heap size of the test JVM
+            maxHeapSize = '2048m'
+
+            // configure the test JVM arguments
+            jvmArgs '-XX:MaxPermSize=512m', '-XX:-UseSplitVerifier'
+
+            // Specify max number of processes (default is 1)
+            maxParallelForks = 1
+
+            // Specify max number of test classes to execute in a test process
+            // before restarting the process (default is unlimited)
+            forkEvery = 150
+
+            // configure whether failing tests should fail the build
+            ignoreFailures false
+
+            systemProperty 'robolectric.logging.enabled', 'true'
+
+            testLogging {
+                events 'passed', 'skipped', 'failed', 'standardError'
+            }
+            jacoco {
+                includeNoLocationClasses = true
+            }
+        }
+        // for Robolectric
+        unitTests.includeAndroidResources = true
+    }
+}
+
+jacoco {
+    toolVersion = rootProject.ext.jacoco_version
+}
+
+dependencies {
+    implementation fileTree(dir: 'libs', include: ['*.jar'])
+
+    implementation "org.jetbrains.kotlin:kotlin-stdlib-jre7:${kotlin_version}"
+    implementation "com.android.support:support-annotations:${support_lib_version}"
+    implementation "io.reactivex.rxjava2:rxjava:${rxjava_version}"
+    implementation "io.reactivex.rxjava2:rxandroid:${rxandroid_version}"
+
+    // Test
+    testImplementation "junit:junit:${junit_version}"
+    testImplementation "org.robolectric:robolectric:${robolectric_version}"
+    testImplementation "com.squareup.assertj:assertj-android:${assertj_version}"
+    testImplementation "org.mockito:mockito-core:${mockito_version}"
+    androidTestImplementation "org.mockito:mockito-android:${mockito_version}"
+    androidTestImplementation "com.android.support.test:runner:${support_test_version}"
+    androidTestImplementation "com.android.support.test:rules:${support_test_version}"
+    androidTestImplementation "com.squareup.assertj:assertj-android:${assertj_version}"
+    androidTestImplementation "com.android.support.test.espresso:espresso-core:${espresso_version}"
+    androidTestImplementation "com.android.support.test.espresso:espresso-intents:${espresso_version}"
+    testImplementation "org.jetbrains.kotlin:kotlin-stdlib-jre7:${kotlin_version}"
+    testImplementation "org.jetbrains.kotlin:kotlin-reflect:${kotlin_version}"
+    testImplementation "org.jetbrains.kotlin:kotlin-test-junit:${kotlin_version}"
+    testImplementation "com.taroid.knit:knit:${knit_version}"
+    testImplementation "com.nhaarman:mockito-kotlin-kt1.1:${mockito_kotlin_version}"
+}

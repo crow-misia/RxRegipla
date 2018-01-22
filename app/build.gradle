@@ -1,0 +1,242 @@
+import com.android.ddmlib.DdmPreferences
+
+apply plugin: 'jacoco'
+apply plugin: 'com.android.application'
+apply plugin: 'kotlin-android'
+apply plugin: 'kotlin-kapt'
+apply plugin: 'com.github.ben-manes.versions'
+
+// Manifest version
+def versionMajor = 1
+def versionMinor = 0
+def versionPatch = 0
+def versionBuild = 0
+
+// CI
+def isCi = "true" == System.getenv("CI")
+def preDexEnabled = "true" == System.getProperty("pre-dex", "true")
+
+def packageName = "io.github.crowmisia.regipla"
+
+// for debug info
+def gitSha = 'git rev-parse --short HEAD'.execute([], project.rootDir).text.trim()
+def gitTimestamp = 'git log -n 1 --format=%at'.execute([], project.rootDir).text.trim()
+
+android {
+    compileSdkVersion compile_sdk_version as int
+    buildToolsVersion build_tools_version
+    dataBinding {
+        enabled = true
+    }
+
+    dexOptions {
+        // Skip pre-dexing when running on CI or when disabled via -Dpre-dex=false.
+        preDexLibraries = preDexEnabled && !isCi
+    }
+
+    defaultConfig {
+        applicationId packageName
+        minSdkVersion min_sdk_version as int
+        targetSdkVersion target_sdk_version as int
+        versionCode versionMajor * 10000 + versionMinor * 1000 + versionPatch * 100 + versionBuild
+        versionName "${versionMajor}.${versionMinor}.${versionPatch}"
+        testInstrumentationRunner "android.support.test.runner.AndroidJUnitRunner"
+
+        buildConfigField "String", "GIT_SHA", "\"${gitSha}\""
+        buildConfigField "long", "GIT_TIMESTAMP", "${gitTimestamp}L"
+
+        // Referred to https://github.com/circleci/EspressoSample to make the Espresso tests work on CircleCI.
+        DdmPreferences.setTimeOut(60000)
+
+        vectorDrawables.useSupportLibrary = true
+
+        proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
+    }
+
+    packagingOptions {
+        exclude 'META-INF/NOTICE.txt'
+        exclude 'META-INF/LICENSE.txt'
+        exclude 'META-INF/DEPENDENCIES'
+        exclude 'META-INF/NOTICE'
+        exclude 'META-INF/LICENSE'
+        exclude 'META-INF/services/javax.annotation.processing.Processor'
+        exclude 'META-INF/rxjava.properties'
+    }
+
+    signingConfigs {
+        debug {
+            storeFile rootProject.file("debug.keystore")
+            storePassword "android"
+            keyAlias "androiddebugkey"
+            keyPassword "android"
+        }
+        release {
+            storeFile rootProject.file("release.keystore")
+            storePassword System.getenv("RELEASE_STORE_PASSWORD")
+            keyAlias System.getenv("RELEASE_KEY_ALIAS")
+            keyPassword System.getenv("RELEASE_KEY_PASSWORD")
+        }
+    }
+
+    buildTypes {
+        debug {
+            signingConfig signingConfigs.debug
+            applicationIdSuffix '.debug'
+            versionNameSuffix "-debug"
+            debuggable true
+            zipAlignEnabled true
+            testCoverageEnabled true
+            multiDexEnabled true
+        }
+        release {
+            signingConfig signingConfigs.release
+            debuggable false
+            zipAlignEnabled true
+            minifyEnabled true
+        }
+    }
+
+    lintOptions {
+        disable 'InvalidPackage'
+        abortOnError false
+        textReport true
+        textOutput 'stdout'
+        lintConfig file("lint.xml")
+    }
+
+    testOptions {
+        unitTests.all {
+            // configure the set of classes for JUnit tests
+            include project.hasProperty("testFilter") ? "**/*${project.ext.testFilter}*Test.class" : '**/*Test.class'
+            exclude '**/espresso/**/*.class'
+
+            // configure max heap size of the test JVM
+            maxHeapSize = '2048m'
+
+            // configure the test JVM arguments
+            jvmArgs '-XX:MaxPermSize=512m', '-XX:-UseSplitVerifier'
+
+            // Specify max number of processes (default is 1)
+            maxParallelForks = 1
+
+            // Specify max number of test classes to execute in a test process
+            // before restarting the process (default is unlimited)
+            forkEvery = 150
+
+            // configure whether failing tests should fail the build
+            ignoreFailures false
+
+            systemProperty 'robolectric.logging.enabled', 'true'
+
+            testLogging {
+                events 'passed', 'skipped', 'failed', 'standardError'
+            }
+            jacoco {
+                includeNoLocationClasses = true
+            }
+        }
+        // for Robolectric
+        unitTests.includeAndroidResources = true
+    }
+}
+
+dependencies {
+    // Kotlin
+    implementation "org.jetbrains.kotlin:kotlin-stdlib-jre7:${kotlin_version}"
+
+    implementation project(':library')
+
+    // Support Library
+    implementation "com.android.support:support-v4:${support_lib_version}"
+    implementation "com.android.support:appcompat-v7:${support_lib_version}"
+    implementation "com.android.support:support-annotations:${support_lib_version}"
+    implementation "com.android.support:design:${support_lib_version}"
+    implementation "com.android.support:recyclerview-v7:${support_lib_version}"
+    implementation "com.android.support:support-vector-drawable:${support_lib_version}"
+    implementation "com.android.support.constraint:constraint-layout:${constraint_layout_version}"
+    debugImplementation "com.android.support:multidex:${multidex_version}"
+
+    // Data Binding
+    kapt "com.android.databinding:compiler:${databinding_version}"
+
+    // Structure
+    implementation "com.google.dagger:dagger:${dagger_version}"
+    kapt "com.google.dagger:dagger-compiler:${dagger_version}"
+    implementation "com.google.dagger:dagger-android-support:${dagger_version}"
+    kapt "com.google.dagger:dagger-android-processor:${dagger_version}"
+    implementation "io.reactivex.rxjava2:rxjava:${rxjava_version}"
+    implementation "io.reactivex.rxjava2:rxkotlin:${rxkotlin_version}"
+    implementation "io.reactivex.rxjava2:rxandroid:${rxandroid_version}"
+
+    // Android Utility
+    implementation "com.jakewharton.timber:timber:${timber_version}"
+
+    implementation("com.github.hotchemi:permissionsdispatcher:${permissiondispatcher_version}") {
+        // if you don't use android.app.Fragment you can exclude support for them
+        exclude module: "support-v13"
+    }
+    kapt "com.github.hotchemi:permissionsdispatcher-processor:${permissiondispatcher_version}"
+
+    // Test
+    testImplementation "junit:junit:${junit_version}"
+    testImplementation "org.robolectric:robolectric:${robolectric_version}"
+    testImplementation "com.squareup.assertj:assertj-android:${assertj_version}"
+    testImplementation "org.mockito:mockito-core:${mockito_version}"
+    androidTestImplementation "org.mockito:mockito-android:${mockito_version}"
+    androidTestImplementation "com.android.support.test:runner:${support_test_version}"
+    androidTestImplementation "com.android.support.test:rules:${support_test_version}"
+    androidTestImplementation "com.squareup.assertj:assertj-android:${assertj_version}"
+    androidTestImplementation "com.android.support.test.espresso:espresso-core:${espresso_version}"
+    androidTestImplementation "com.android.support.test.espresso:espresso-intents:${espresso_version}"
+    testImplementation "org.jetbrains.kotlin:kotlin-stdlib-jre7:${kotlin_version}"
+    testImplementation "org.jetbrains.kotlin:kotlin-reflect:${kotlin_version}"
+    testImplementation "org.jetbrains.kotlin:kotlin-test-junit:${kotlin_version}"
+    testImplementation "com.taroid.knit:knit:${knit_version}"
+    testImplementation "com.nhaarman:mockito-kotlin-kt1.1:${mockito_kotlin_version}"
+}
+
+jacoco {
+    toolVersion = rootProject.ext.jacoco_version
+}
+
+// A list of directories which should be included in coverage report
+def coverageSourceDirs = ['src/main/java']
+// A list of files which should be excluded from coverage report since they are generated and/or framework code
+def coverageExcludeFiles = ['**/R.class', '**/R$*.class', '**/DataBindingInfo.class', '**/android/databinding/*.*', '**/com/android/**/*.*', '**/BR.class']
+
+task jacocoTestReport(type: JacocoReport, dependsOn: ['testDebugUnitTest']) {
+    group = "Reporting"
+    description = "Generate Jacoco coverage reports after running tests."
+    reports {
+        xml.enabled true
+        html.enabled true
+        csv.enabled false
+        xml.destination "${buildDir}/reports/jacoco/test/jacocoTestReport.xml"
+        html.destination "${buildDir}/reports/coverage"
+        classDirectories = files(
+                fileTree(
+                        dir: "${buildDir}/intermediates/classes/debug",
+                        exclude: coverageExcludeFiles))
+    }
+    sourceDirectories = files(coverageSourceDirs)
+    executionData = files "${buildDir}/jacoco/testDebugUnitTest.exec"
+
+    doLast {
+        println "jacoco xml report has been generated to file://${buildDir}/reports/jacoco/test/jacocoTestReport.xml"
+        println "jacoco html report has been generated to file://${reports.html.destination}/index.html"
+    }
+}
+
+// report only stable versions
+dependencyUpdates.resolutionStrategy = {
+    componentSelection { rules ->
+        rules.all { ComponentSelection selection ->
+            boolean rejected = ['alpha', 'beta', 'rc', 'cr', 'm'].any { qualifier ->
+                selection.candidate.version ==~ /(?i).*[.-]${qualifier}[.\d-]*/
+            }
+            if (rejected) {
+                selection.reject('Release candidate')
+            }
+        }
+    }
+}
