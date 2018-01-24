@@ -4,7 +4,7 @@ import io.reactivex.Scheduler
 import io.reactivex.android.schedulers.AndroidSchedulers
 import io.reactivex.schedulers.Schedulers
 
-class TestSchedulerProvider : SchedulerProvider {
+object TestSchedulerProvider : SchedulerProvider {
     override fun ui(): Scheduler = Schedulers.trampoline()
 
     override fun computation(): Scheduler = Schedulers.trampoline()

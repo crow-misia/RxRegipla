@@ -9,7 +9,6 @@ import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
 import android.widget.Toast
-import app.R
 import app.databinding.FragmentMainBinding
 import app.log.BleLogEventsHandler
 import app.util.rx.SchedulerProvider
@@ -60,6 +59,7 @@ class MainFragment @Inject constructor() : DaggerFragment() {
         bluetoothAdapter?.let {
             RxRegiPla(it, BleLogEventsHandler()).connect(activity!!, "2c66")
                     .subscribeOn(schedulerProvider.ui())
+                    .observeOn(schedulerProvider.ui())
                     .subscribeBy(
                             onNext = { binding.buttonState.text = it.toHexString() },
                             onError = { Timber.e(it) }

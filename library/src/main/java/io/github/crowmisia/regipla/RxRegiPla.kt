@@ -9,6 +9,7 @@ import android.support.annotation.RequiresPermission
 import io.github.crowmisia.regipla.ble.*
 import io.reactivex.Flowable
 import io.reactivex.android.schedulers.AndroidSchedulers
+import io.reactivex.schedulers.Schedulers
 import java.io.IOException
 import java.util.*
 
@@ -42,11 +43,18 @@ class RxRegiPla constructor(private val adapter: BluetoothAdapter, private val e
                         val service = it.firstOrNull { it.uuid == SERVICE_UUID }
                         service?.getCharacteristic(PIO_INPUT_NOTIFICATION_CHARACTERISTIC_UUID)?.also {
                             return@flatMapPublisher gatt.rxEnableNotification(it).flatMapPublisher { gatt.rxChanged(it) }
+                                    .doOnCancel {
+                                        // 終了時に接続を解除する
+                                        gatt.disconnect()
+                                    }
                         }
                         return@flatMapPublisher Flowable.error<ByteArray>(IOException())
+                                .doOnCancel {
+                                    // 終了時に接続を解除する
+                                    gatt.disconnect()
+                                }
                     }
-                }.subscribeOn(AndroidSchedulers.mainThread())
-                .observeOn(AndroidSchedulers.mainThread())
+                }
     }
 
     companion object {

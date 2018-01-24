@@ -16,5 +16,5 @@ import dagger.Provides
         return manager.adapter
     }
 
-    @Provides fun provideSchedulerProvider(): SchedulerProvider = AppSchedulerProvider()
+    @Provides fun provideSchedulerProvider(): SchedulerProvider = AppSchedulerProvider
 }
